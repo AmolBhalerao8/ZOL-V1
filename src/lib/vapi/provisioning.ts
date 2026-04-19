@@ -97,7 +97,18 @@ export async function provisionShop(shopId: string): Promise<{
   })
 
   // 4. Link assistant to phone number
-  const webhookUrl = process.env.VAPI_WEBHOOK_URL ?? ''
+  // Prefer explicit VAPI_WEBHOOK_URL; fall back to deriving from NEXT_PUBLIC_APP_URL
+  const appOrigin = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, '')
+  const webhookUrl =
+    process.env.VAPI_WEBHOOK_URL?.trim() ||
+    (appOrigin ? `${appOrigin}/api/vapi/webhook` : '')
+
+  if (!webhookUrl.startsWith('https://')) {
+    throw new Error(
+      'Vapi requires an https:// webhook URL. Set VAPI_WEBHOOK_URL or NEXT_PUBLIC_APP_URL (must be https) in your environment.'
+    )
+  }
+
   await linkAssistantToPhoneNumber(phoneNumberRes.id, assistantRes.id, webhookUrl)
 
   // 5. Update shop in DB
