@@ -97,6 +97,16 @@ Visit [http://localhost:3000](http://localhost:3000)
 4. **Provision phone** — buys Vapi phone number and creates AI assistant (requires `VAPI_API_KEY`)
 5. Redirect to dashboard — shop is live
 
+### Google “Access blocked / request is invalid” (Connect Google)
+
+In **Google Cloud Console** → **APIs & Services** → **Credentials** → your **OAuth 2.0 Client ID** (type must be **Web application**):
+
+1. **Authorized JavaScript origins** — add your site origin only, e.g. `https://zol-v1.vercel.app` (no path, no trailing slash).
+2. **Authorized redirect URIs** — add exactly: `https://<your-host>/api/google/oauth/callback` (must match `NEXT_PUBLIC_APP_URL` + `/api/google/oauth/callback`).
+3. **`NEXT_PUBLIC_APP_URL` on Vercel** — same origin as step 1, e.g. `https://zol-v1.vercel.app` (no trailing slash).
+
+If redirect URIs differ by even one character from what Google lists, Google shows **Error 400: invalid_request** / **redirect_uri_mismatch**.
+
 ---
 
 ## API Routes

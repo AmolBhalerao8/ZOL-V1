@@ -11,14 +11,24 @@ const SCOPES = [
   'https://www.googleapis.com/auth/userinfo.email',
 ]
 
+const CALLBACK_PATH = '/api/google/oauth/callback'
+
 /**
  * Must match exactly one URI in Google Cloud → OAuth client → Authorized redirect URIs.
- * Prefer NEXT_PUBLIC_APP_URL (same as deployed host) so Vercel never uses a stale localhost GOOGLE_OAUTH_REDIRECT_URI.
+ * Prefer NEXT_PUBLIC_APP_URL (same as deployed host). Uses URL.origin only so a mistaken
+ * path on NEXT_PUBLIC_APP_URL cannot break redirect_uri matching.
  */
 export function getGoogleOAuthRedirectUri(): string {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, '')
-  if (appUrl) {
-    return `${appUrl}/api/google/oauth/callback`
+  const raw = process.env.NEXT_PUBLIC_APP_URL?.trim()
+  if (raw) {
+    try {
+      const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+      const u = new URL(withScheme)
+      return `${u.origin}${CALLBACK_PATH}`
+    } catch {
+      const base = raw.replace(/\/$/, '')
+      return `${base}${CALLBACK_PATH}`
+    }
   }
   const explicit = process.env.GOOGLE_OAUTH_REDIRECT_URI?.trim()
   if (explicit) return explicit
