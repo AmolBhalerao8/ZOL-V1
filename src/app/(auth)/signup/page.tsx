@@ -24,10 +24,12 @@ export default function SignupPage() {
     setError(null)
 
     const supabase = createClient()
+    const appOrigin =
+      process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || window.location.origin
     const { error: authError } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: `${window.location.origin}/` },
+      options: { emailRedirectTo: `${appOrigin}/` },
     })
 
     if (authError) {
