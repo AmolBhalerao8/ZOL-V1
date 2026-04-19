@@ -94,8 +94,8 @@ export async function createAssistant(params: {
       systemPrompt: params.systemPrompt,
     },
     voice: {
-      provider: '11labs',
-      voiceId: 'rachel',
+      provider: 'openai',
+      voiceId: 'nova',
     },
     firstMessage: 'Thank you for calling. How can I help you today?',
     endCallFunctionEnabled: true,
