@@ -82,7 +82,10 @@ export default async function CreateShopPage() {
                   type="tel"
                   placeholder="+14155551234 (for business hours)"
                 />
-                <p className="text-xs text-gray-500">During business hours, callers will be redirected here.</p>
+                <p className="text-xs text-gray-500">
+                  E.164 with country code (e.g. +14155551234). Used as Vapi fallback when buying a number; if
+                  blank, set <span className="font-mono">VAPI_FALLBACK_E164</span> in server env.
+                </p>
               </div>
 
               <div className="border-t pt-4">

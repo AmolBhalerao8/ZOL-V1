@@ -39,11 +39,19 @@ async function vapiRequest<T>(
 export async function purchasePhoneNumber(params: {
   areaCode?: string
   country?: string
+  /** E.164 (e.g. +14155552671). Required by Vapi when creating a phone number. */
+  fallbackE164: string
 }): Promise<VapiPhoneNumberResponse> {
+  const fallback = params.fallbackE164.trim()
+  if (!fallback.startsWith('+') || fallback.length < 11) {
+    throw new Error(
+      'fallbackE164 must be E.164 (e.g. +14155552671) for Vapi phone provisioning'
+    )
+  }
   return vapiRequest<VapiPhoneNumberResponse>('POST', '/phone-number', {
     provider: 'vapi',
     numberDesiredAreaCode: params.areaCode ?? '415',
-    fallbackDestination: { type: 'number', number: '' },
+    fallbackDestination: { type: 'number', number: fallback },
   })
 }
 

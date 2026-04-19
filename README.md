@@ -196,6 +196,7 @@ RLS is enabled on all tables. Cross-shop reads are blocked at the database level
 | `VAPI_API_KEY` | ⏳ | Vapi org-level API key |
 | `VAPI_WEBHOOK_SECRET` | ⏳ | Vapi webhook HMAC secret |
 | `VAPI_WEBHOOK_URL` | ⏳ | Public URL for Vapi to POST events |
+| `VAPI_FALLBACK_E164` | ⏳ | E.164 staff number if shop has no `human_redirect_number` (Vapi phone buy API) |
 | `GOOGLE_CLIENT_ID` | ⏳ | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | ⏳ | Google OAuth client secret |
 | `GOOGLE_OAUTH_REDIRECT_URI` | ⏳ | OAuth callback URL |

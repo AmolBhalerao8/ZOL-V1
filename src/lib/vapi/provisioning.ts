@@ -8,7 +8,22 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { purchasePhoneNumber, createAssistant, linkAssistantToPhoneNumber } from './client'
+import { normalizeToE164 } from './phone-e164'
 import type { BusinessHours, PricingConfig } from '@/lib/supabase/types'
+
+function resolveVapiFallbackE164(shop: {
+  human_redirect_number: string | null
+}): string {
+  const fromShop = normalizeToE164(shop.human_redirect_number)
+  const fromEnv = normalizeToE164(process.env.VAPI_FALLBACK_E164)
+  const resolved = fromShop ?? fromEnv
+  if (!resolved) {
+    throw new Error(
+      'Vapi needs a real fallback phone in E.164. Add “Human redirect / staff number” when creating your shop (e.g. +14155552671), or set VAPI_FALLBACK_E164 in your environment.'
+    )
+  }
+  return resolved
+}
 
 function buildSystemPrompt(params: {
   shopName: string
@@ -71,8 +86,12 @@ export async function provisionShop(shopId: string): Promise<{
     pricingConfig: (shop.pricing_config as PricingConfig) ?? {},
   })
 
-  // 2. Buy phone number
-  const phoneNumberRes = await purchasePhoneNumber({ areaCode: '415' })
+  // 2. Buy phone number (Vapi requires a valid E.164 fallback, not empty)
+  const fallbackE164 = resolveVapiFallbackE164(shop)
+  const phoneNumberRes = await purchasePhoneNumber({
+    areaCode: '415',
+    fallbackE164,
+  })
 
   // 3. Create assistant
   const assistantRes = await createAssistant({
