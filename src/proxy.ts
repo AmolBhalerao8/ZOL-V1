@@ -1,7 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const PUBLIC_PATHS = ['/login', '/signup', '/api/vapi/webhook', '/api/google/oauth/callback', '/api/auth']
+const EXACT_PUBLIC_PATHS = ['/']
+const PREFIX_PUBLIC_PATHS = ['/login', '/signup', '/api/vapi/webhook', '/api/google/oauth/callback', '/api/auth']
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -33,7 +34,9 @@ export async function proxy(request: NextRequest) {
   const isAuthenticated = !!claimsResult.data
 
   const path = request.nextUrl.pathname
-  const isPublicPath = PUBLIC_PATHS.some((p) => path.startsWith(p))
+  const isPublicPath =
+    EXACT_PUBLIC_PATHS.includes(path) ||
+    PREFIX_PUBLIC_PATHS.some((p) => path.startsWith(p))
 
   if (!isAuthenticated && !isPublicPath) {
     return NextResponse.redirect(new URL('/login', request.url))
