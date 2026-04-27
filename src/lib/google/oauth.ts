@@ -51,13 +51,14 @@ function getOAuthClient() {
   return new google.auth.OAuth2(clientId, clientSecret, redirectUri)
 }
 
-export function getAuthorizationUrl(workspaceId: string): string {
+export function getAuthorizationUrl(workspaceId: string, returnTo = '/'): string {
   const oauth2Client = getOAuthClient()
+  const state = JSON.stringify({ workspaceId, returnTo })
   return oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: SCOPES,
     prompt: 'consent',
-    state: workspaceId,
+    state,
   })
 }
 

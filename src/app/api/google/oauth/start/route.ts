@@ -12,6 +12,7 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url)
   const workspaceId = searchParams.get('workspaceId')
+  const returnTo = searchParams.get('returnTo') ?? '/'
 
   if (!workspaceId) {
     return NextResponse.json({ error: 'Missing workspaceId' }, { status: 400 })
@@ -29,6 +30,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
   }
 
-  const url = getAuthorizationUrl(workspaceId)
+  const url = getAuthorizationUrl(workspaceId, returnTo)
   return NextResponse.json({ url })
 }

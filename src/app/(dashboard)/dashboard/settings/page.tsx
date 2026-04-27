@@ -6,6 +6,8 @@ import { Settings, Phone, Mail, Calendar, Clock, Wifi, WifiOff } from 'lucide-re
 import type { BusinessHours } from '@/lib/supabase/types'
 import { DeleteAccountButton } from '@/components/settings/DeleteAccountButton'
 import { FixWebhookButton } from '@/components/settings/FixWebhookButton'
+import { ConnectGoogleButton } from '@/components/settings/ConnectGoogleButton'
+import { GoogleStatusBanner } from '@/components/settings/GoogleStatusBanner'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -42,6 +44,8 @@ export default async function SettingsPage() {
         <Settings className="h-6 w-6 text-gray-600" />
         <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
       </div>
+
+      <GoogleStatusBanner />
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Workspace Info */}
@@ -121,12 +125,15 @@ export default async function SettingsPage() {
               )}
             </div>
           </CardHeader>
-          <CardContent>
-            {gmailMeta.email ? (
+          <CardContent className="space-y-3">
+            {gmailMeta.email && (
               <p className="text-sm text-gray-700">{gmailMeta.email}</p>
-            ) : (
-              <p className="text-sm text-gray-400">Connect Google to send emails</p>
             )}
+            <ConnectGoogleButton
+              workspaceId={workspace.id}
+              isConnected={isGmailConnected}
+              label="Connect Google Account"
+            />
           </CardContent>
         </Card>
 
@@ -148,12 +155,15 @@ export default async function SettingsPage() {
               )}
             </div>
           </CardHeader>
-          <CardContent>
-            {calMeta.calendar_id ? (
-              <p className="text-sm text-gray-700">Calendar ID: {calMeta.calendar_id}</p>
-            ) : (
-              <p className="text-sm text-gray-400">Connect Google to sync appointments</p>
+          <CardContent className="space-y-3">
+            {calMeta.calendar_id && (
+              <p className="text-sm text-gray-700 font-mono text-xs">{calMeta.calendar_id}</p>
             )}
+            <ConnectGoogleButton
+              workspaceId={workspace.id}
+              isConnected={isCalendarConnected}
+              label="Connect Google Calendar"
+            />
           </CardContent>
         </Card>
 

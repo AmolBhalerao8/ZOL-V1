@@ -11,18 +11,27 @@ import { google } from 'googleapis'
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const code = searchParams.get('code')
-  const state = searchParams.get('state')  // workspaceId
-  const error = searchParams.get('error')
+  const rawState = searchParams.get('state')
+  const oauthError = searchParams.get('error')
 
-  if (error) {
-    return NextResponse.redirect(
-      new URL(`/onboarding?error=${encodeURIComponent(error)}&step=3`, req.url)
-    )
+  // Parse state — may be JSON { workspaceId, returnTo } or a plain workspaceId string
+  let workspaceId = ''
+  let returnTo = '/dashboard/settings'
+  if (rawState) {
+    try {
+      const parsed = JSON.parse(rawState) as { workspaceId?: string; returnTo?: string }
+      workspaceId = parsed.workspaceId ?? rawState
+      returnTo = parsed.returnTo ?? '/dashboard/settings'
+    } catch {
+      workspaceId = rawState
+    }
   }
 
-  if (!code || !state) {
-    return NextResponse.redirect(new URL('/onboarding?error=missing_params&step=3', req.url))
-  }
+  const errorRedirect = (msg: string) =>
+    NextResponse.redirect(new URL(`${returnTo}?google_error=${encodeURIComponent(msg)}`, req.url))
+
+  if (oauthError) return errorRedirect(oauthError)
+  if (!code || !workspaceId) return errorRedirect('missing_params')
 
   try {
     const tokens = await exchangeCodeForTokens(code)
@@ -55,7 +64,7 @@ export async function GET(req: NextRequest) {
       .from('integrations')
       .upsert(
         {
-          workspace_id: state,
+          workspace_id: workspaceId,
           provider: 'google_calendar',
           access_token: encryptedAccessToken,
           refresh_token: encryptedRefreshToken,
@@ -72,7 +81,7 @@ export async function GET(req: NextRequest) {
       .from('integrations')
       .upsert(
         {
-          workspace_id: state,
+          workspace_id: workspaceId,
           provider: 'gmail',
           access_token: encryptedAccessToken,
           refresh_token: encryptedRefreshToken,
@@ -88,14 +97,12 @@ export async function GET(req: NextRequest) {
     await admin
       .from('workspaces')
       .update({ status: 'active', updated_at: new Date().toISOString() })
-      .eq('id', state)
+      .eq('id', workspaceId)
 
-    return NextResponse.redirect(new URL(`/`, req.url))
+    return NextResponse.redirect(new URL(`${returnTo}?google_connected=1`, req.url))
   } catch (err) {
     const message = err instanceof Error ? err.message : 'OAuth failed'
     console.error('[google/oauth/callback]', message)
-    return NextResponse.redirect(
-      new URL(`/onboarding?error=${encodeURIComponent(message)}&step=3`, req.url)
-    )
+    return errorRedirect(message)
   }
 }
