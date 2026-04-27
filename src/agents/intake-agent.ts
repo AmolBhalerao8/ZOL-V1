@@ -9,9 +9,8 @@
  * 5. Log all steps to agent_steps via orchestrator
  */
 
-import Anthropic from '@anthropic-ai/sdk'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getAnthropicClient } from '@/lib/anthropic/client'
+import { getOpenAIClient } from '@/lib/openai/client'
 import { runOrchestrator } from './orchestrator'
 import { queryCallsTool } from './tools/query-calls'
 import { getCallTranscriptTool } from './tools/get-call-transcript'
@@ -46,18 +45,22 @@ interface CallExtraction {
 }
 
 async function extractCallData(transcript: unknown, workspaceName: string): Promise<CallExtraction> {
-  const anthropic = getAnthropicClient()
+  const openai = getOpenAIClient()
 
   const transcriptText = typeof transcript === 'string'
     ? transcript
     : JSON.stringify(transcript)
 
-  const response = await anthropic.messages.create({
-    model: 'claude-opus-4-5',
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o',
     max_tokens: 1024,
-    system: `You are a data extraction assistant for ${workspaceName} mechanic shop.
-Extract structured information from call transcripts. Return ONLY valid JSON — no markdown.`,
+    response_format: { type: 'json_object' },
     messages: [
+      {
+        role: 'system',
+        content: `You are a data extraction assistant for ${workspaceName} mechanic shop.
+Extract structured information from call transcripts. Return ONLY valid JSON — no markdown.`,
+      },
       {
         role: 'user',
         content: `Transcript:\n${transcriptText}\n\nReturn JSON with this exact shape:
@@ -79,8 +82,7 @@ Extract structured information from call transcripts. Return ONLY valid JSON —
     ],
   })
 
-  const textBlock = response.content.find((b): b is Anthropic.TextBlock => b.type === 'text')
-  const raw = textBlock?.text ?? '{}'
+  const raw = response.choices[0].message.content ?? '{}'
 
   try {
     return JSON.parse(raw) as CallExtraction

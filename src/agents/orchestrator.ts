@@ -1,17 +1,17 @@
 /**
  * Agent orchestrator — PLAN → TOOL_CALL → OBSERVE → FINISH loop.
  *
- * Uses Anthropic Claude tool_use API.
- * Every step is persisted to agent_steps table (not JSONB in agent_runs).
+ * Uses OpenAI GPT-4o function calling API.
+ * Every step is persisted to agent_steps table.
  */
 
-import type Anthropic from '@anthropic-ai/sdk'
-import { getAnthropicClient } from '@/lib/anthropic/client'
+import type OpenAI from 'openai'
+import { getOpenAIClient } from '@/lib/openai/client'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { Tool, WorkspaceContext, OrchestratorResult } from './types'
 
 const MAX_ITERATIONS = 15
-const MODEL = 'claude-opus-4-5'
+const MODEL = 'gpt-4o'
 
 type AnyTool = Tool<unknown, unknown>
 
@@ -30,11 +30,14 @@ When given a task:
 Always be helpful, accurate, and concise in your final response.`
 }
 
-function toolsToAnthropicFormat(tools: AnyTool[]): Anthropic.Tool[] {
+function toolsToOpenAIFormat(tools: AnyTool[]): OpenAI.Chat.ChatCompletionTool[] {
   return tools.map((t) => ({
-    name: t.name,
-    description: t.description,
-    input_schema: t.inputSchema as Anthropic.Tool['input_schema'],
+    type: 'function' as const,
+    function: {
+      name: t.name,
+      description: t.description,
+      parameters: t.inputSchema as Record<string, unknown>,
+    },
   }))
 }
 
@@ -70,14 +73,15 @@ export async function runOrchestrator(params: {
   tools: AnyTool[]
 }): Promise<OrchestratorResult> {
   const { runId, ctx, userPrompt, tools } = params
-  const anthropic = getAnthropicClient()
+  const openai = getOpenAIClient()
   const admin = createAdminClient()
 
   const toolMap = new Map<string, AnyTool>(tools.map((t) => [t.name, t]))
-  const anthropicTools = toolsToAnthropicFormat(tools)
+  const openaiTools = toolsToOpenAIFormat(tools)
   const systemPrompt = buildSystemPrompt(ctx)
 
-  const messages: Anthropic.MessageParam[] = [
+  const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+    { role: 'system', content: systemPrompt },
     { role: 'user', content: userPrompt },
   ]
 
@@ -93,46 +97,45 @@ export async function runOrchestrator(params: {
 
   try {
     for (let i = 0; i < MAX_ITERATIONS; i++) {
-      const response = await anthropic.messages.create({
+      const response = await openai.chat.completions.create({
         model: MODEL,
-        max_tokens: 4096,
-        system: systemPrompt,
         messages,
-        tools: anthropicTools,
-        tool_choice: { type: 'auto' },
+        tools: openaiTools,
+        tool_choice: 'auto',
       })
 
-      // Add assistant response to messages
-      messages.push({ role: 'assistant', content: response.content })
+      const message = response.choices[0].message
+      const finishReason = response.choices[0].finish_reason
+      const hasToolCalls = !!(message.tool_calls && message.tool_calls.length > 0)
 
-      const hasToolUse = response.content.some((b) => b.type === 'tool_use')
+      // Add assistant message to history
+      messages.push(message)
 
-      // PLAN step — log the text reasoning if present
-      const textBlock = response.content.find((b) => b.type === 'text')
-      if (textBlock && textBlock.type === 'text' && textBlock.text) {
+      // Log reasoning text if present
+      if (message.content) {
         stepNum++
         await saveStep({
           runId,
           stepNumber: stepNum,
-          stepType: hasToolUse ? 'plan' : 'finish',
-          toolOutput: { text: textBlock.text },
+          stepType: hasToolCalls ? 'plan' : 'finish',
+          toolOutput: { text: message.content },
           status: 'success',
         })
       }
 
-      if (response.stop_reason === 'end_turn' || !hasToolUse) {
-        finalResult = textBlock?.text ?? null
+      if (finishReason === 'stop' || !hasToolCalls) {
+        finalResult = message.content ?? null
         break
       }
 
       // Execute tool calls
-      const toolResults: Anthropic.ToolResultBlockParam[] = []
+      for (const toolCall of message.tool_calls!) {
+        const toolName = toolCall.function.name
+        let toolInput: Record<string, unknown> = {}
+        try {
+          toolInput = JSON.parse(toolCall.function.arguments) as Record<string, unknown>
+        } catch { /* leave as empty object */ }
 
-      for (const block of response.content) {
-        if (block.type !== 'tool_use') continue
-
-        const toolName = block.name
-        const toolInput = block.input as Record<string, unknown>
         const tool = toolMap.get(toolName)
         stepNum++
         totalToolCalls++
@@ -169,18 +172,15 @@ export async function runOrchestrator(params: {
           errorMessage: toolError,
         })
 
-        toolResults.push({
-          type: 'tool_result',
-          tool_use_id: block.id,
+        // Append tool result to messages
+        messages.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
           content: toolError
             ? JSON.stringify({ error: toolError })
             : JSON.stringify(toolOutput),
-          is_error: !!toolError,
         })
       }
-
-      // Append tool results to messages
-      messages.push({ role: 'user', content: toolResults })
 
       // OBSERVE step
       stepNum++
@@ -188,7 +188,7 @@ export async function runOrchestrator(params: {
         runId,
         stepNumber: stepNum,
         stepType: 'observe',
-        toolOutput: { tool_results_count: toolResults.length },
+        toolOutput: { tool_results_count: message.tool_calls!.length },
         status: 'success',
       })
     }
