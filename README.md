@@ -1,4 +1,4 @@
-# ZOL — Agentic AI Platform for Mechanic Shops
+# ZOL — AI Employee for Mechanic Shops
 
 ZOL automates after-hours calls for mechanic shops. It answers calls 24/7, transcribes them, extracts car details and issues, generates quotes, sends them via Gmail, and books follow-up appointments — all without human intervention.
 
